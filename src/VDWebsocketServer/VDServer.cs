@@ -8,12 +8,13 @@ using System.Threading.Tasks;
 
 namespace VDWebsocketServer
 {
-    class Program
+    class VDServer
     {
         static void Main(string[] args)
         {
+            FleckLog.Level = LogLevel.Debug;
             // Store the subscribed clients.
-            var clients = new List<IWebSocketConnection>();
+            var allClients = new List<IWebSocketConnection>();
 
             // Initialize the WebSocket server connection.
             var server = new WebSocketServer("ws://127.0.0.1:8181");
@@ -22,11 +23,12 @@ namespace VDWebsocketServer
             {
                 socket.OnOpen = () =>
                 {
+                    Console.WriteLine("On open!");
                     // Add the incoming connection to our list.
-                    clients.Add(socket);
+                    allClients.Add(socket);
 
                     // Inform the others that someone has just joined the conversation.
-                    foreach (var client in clients)
+                    foreach (var client in allClients)
                     {
                         // Check the connection unique ID and display a different welcome message!
                         if (client.ConnectionInfo.Id != socket.ConnectionInfo.Id)
@@ -53,11 +55,12 @@ namespace VDWebsocketServer
                 };
                 socket.OnClose = () =>
                 {
+                    Console.WriteLine("On close!");
                     // Remove the disconnected client from the list.
-                    clients.Remove(socket);
+                    allClients.Remove(socket);
 
                     // Inform the others that someone left the conversation.
-                    foreach (var client in clients)
+                    foreach (var client in allClients)
                     {
                         if (client.ConnectionInfo.Id != socket.ConnectionInfo.Id)
                         {
@@ -72,15 +75,19 @@ namespace VDWebsocketServer
                     // Send the message to everyone!
                     // Also, send the client connection's unique identifier in order to recognize who is who.
                     Console.WriteLine("Received: " + message);
-                    foreach (var client in clients)
-                    {
-                        client.Send(socket.ConnectionInfo.Id + " says: <strong>" + message + "</strong>");
-                    }
+                    allClients.ToList().ForEach(s => s.Send(message));
                 };
             });
 
-            // Wait for a key press to close...
-            Console.ReadLine();
+            var input = Console.ReadLine();
+            while (input != "exit")
+            {
+                foreach (var socket in allClients.ToList())
+                {
+                    socket.Send(input);
+                }
+                input = Console.ReadLine();
+            }
         }
     }
 }
